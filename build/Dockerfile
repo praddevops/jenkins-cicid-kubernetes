@@ -10,9 +10,13 @@ USER node
 
 RUN npm install
 
+USER root
+
 COPY ./src/main/node-app/ .
 
 RUN chown -R node:node .
+
+USER node
 
 EXPOSE 8080
 
