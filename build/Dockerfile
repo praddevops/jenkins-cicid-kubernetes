@@ -12,8 +12,6 @@ RUN npm install
 
 COPY ./src/main/node-app/ .
 
-USER root
-
 RUN chown -R node:node .
 
 EXPOSE 8080
