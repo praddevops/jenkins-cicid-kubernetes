@@ -83,7 +83,7 @@ pipeline {
                 cat ${SECRETKEYFILE} > ssh_key
                 chmod 400 ssh_key
                 sed "s/tagVersion/${deploy_version}/g" -i deploy/nodeapp-deployment.yaml
-                sudo chmod 755 k8s_app_deploy.sh
+                chmod +x k8s_app_deploy.sh
                 ./k8s_app_deploy.sh -i ssh_key -d nodeapp-deployment.yaml -s nodeapp-service.yaml -k ${params.kubernetes_admin_host} -u ${REMOTEUSERNAME}
                 """
               } 

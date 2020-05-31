@@ -23,3 +23,5 @@ Jenkins Plugin Requirements(in addition to default plugins): AnsiColor, Pipeline
 * If pipeline fails due to `org.jenkinsci.plugins.scriptsecurity.sandbox.RejectedAccessException: Scripts not permitted to use....`, go to Manage Jenkins-->In process Script Approval to approve the scripts 
 
 
+## Note
+* Here, we are deploying to `default` namespace. In an Enterprise organization, there will be multiple environments like dev, test, production. Each application and its enviroment will have its own namespace and may be present in seperate clusters. So, in such scenario, deployment and service templates should include namespace parameter as well and the resources have to be created in clusters specific to each enviroment and application by using the kube config context while executing `kubectl apply`
