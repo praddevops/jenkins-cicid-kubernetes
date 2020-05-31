@@ -82,11 +82,7 @@ pipeline {
                 cat ${SECRETKEYFILE} > ssh_key
                 chmod 400 ssh_key
                 sed "s/tagVersion/${deploy_version}/g" -i deploy/nodeapp-deployment.yaml
-                scp -i ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -q deploy/nodeapp-deployment.yaml ${REMOTEUSERNAME}@${params.kubernetes_admin_host}:/tmp/
-                scp -i ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -q deploy/nodeapp-service.yaml ${REMOTEUSERNAME}@${params.kubernetes_admin_host}:/tmp/
-                ssh -i ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${REMOTEUSERNAME}@${params.kubernetes_admin_host} kubectl apply -f /tmp/nodeapp-deployment.yaml
-                ssh -i ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${REMOTEUSERNAME}@${params.kubernetes_admin_host} kubectl apply -f /tmp/nodeapp-service.yaml
-                ssh -i ssh_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${REMOTEUSERNAME}@${params.kubernetes_admin_host} rm -f /tmp/nodeapp-deployment.yaml /tmp/nodeapp-service.yaml
+                ./k8s_app_deploy.sh -i ssh_key -d nodeapp-deployment.yaml -s nodeapp-service.yaml -k ${params.kubernetes_admin_host} -u ${REMOTEUSERNAME}
                 """
               } 
              
