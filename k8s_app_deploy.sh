@@ -84,6 +84,9 @@ fi
 
 scp -i $SSH_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -q deploy/$DEPLY_TEMPLT $K8S_ADM_USERNAME@$K8S_ADM_HOST:/tmp/
 scp -i $SSH_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -q deploy/$SERVC_TEMPLT $K8S_ADM_USERNAME@$K8S_ADM_HOST:/tmp/
-ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $K8S_ADM_USERNAME@$K8S_ADM_HOST kubectl apply -f /tmp/$DEPLY_TEMPLT
-ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $K8S_ADM_USERNAME@$K8S_ADM_HOST kubectl apply -f /tmp/$SERVC_TEMPLT
-ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $K8S_ADM_USERNAME@$K8S_ADM_HOST rm -f /tmp/$DEPLY_TEMPLT /tmp/$SERVC_TEMPLT
+ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $K8S_ADM_USERNAME@$K8S_ADM_HOST << EOF
+#!/bin/sh
+kubectl apply -f /tmp/$DEPLY_TEMPLT 
+kubectl apply -f /tmp/$SERVC_TEMPLT
+rm -f /tmp/$DEPLY_TEMPLT /tmp/$SERVC_TEMPLT
+EOF
