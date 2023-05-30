@@ -11,6 +11,7 @@ pipeline {
     
     parameters {
        choice(name: 'Action', choices: ['build','deploy'], description: 'build: to build an image and push to dockerhub. deploy: to deploy to k8s')
+       choice(name: 'ARCH', choices: ['linux/arm/v7','linux/arm64/v8','linux/amd64'], description: 'OS/ARCH of the Kubernetes cluster nodes')
        string(name: 'ReleaseVersion', defaultValue:'1', description: 'RELEASE VERSION NUMBER to tag an image in build stage. N/A when Action is "deploy"')
        string(name: 'deployment_image_version', defaultValue:'', description: 'Enter the image version to deploy. N/A when Action is "build"')
        string(name: 'kubernetes_admin_host', defaultValue:'', description: 'kubernetes admin host where kubeconfig is located. N/A when Action is "build"')
@@ -61,7 +62,7 @@ pipeline {
                 sudo yum install -y docker
                 sudo service docker start
                 sudo docker system prune -a -f
-                sudo docker build . -f build/Dockerfile --no-cache -t ${DOCKERHUBUSERNAME}/node-app:${version}
+                sudo docker build . -f build/Dockerfile --no-cache --build-arg ARCH="${params.ARCH}" -t ${DOCKERHUBUSERNAME}/node-app:${version}
                 sudo docker login --username=${DOCKERHUBUSERNAME} --password ${DOCKERHUBPASSW}
                 sudo docker push ${DOCKERHUBUSERNAME}/node-app:${version}
                 sudo docker logout
