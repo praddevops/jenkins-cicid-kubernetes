@@ -1,6 +1,6 @@
 ARG ARCH=linux/arm/v7
 
-FROM --platoform=$ARCH node:20-alpine3.16
+FROM --platform=$ARCH node:20-alpine3.16
 
 RUN mkdir -p /home/node/app/node_modules && chown -R node:node /home/node/app
 
