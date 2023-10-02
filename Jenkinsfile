@@ -1,5 +1,117 @@
 #!/usr/bin/env groovy
 def version
+def MajorReleaseVersion = '1' //This should match with the Major Release Version of the application
+properties([parameters([
+    [$class: 'ChoiceParameter', 
+        choiceType: 'PT_SINGLE_SELECT', 
+        description: 'Select the BuildAction from the Dropdown List', 
+        filterLength: 1, 
+        filterable: false, 
+        name: 'BuildAction', 
+        randomName: 'choice-parameter-5631314439613978', 
+        script: [
+            $class: 'GroovyScript', 
+            fallbackScript: [
+                classpath: [], 
+                sandbox: true, 
+                script: 
+                    'return [\"Error loading the choices\"]'
+            ], 
+            script: [
+                classpath: [], 
+                sandbox: true, 
+                script: 
+                    'return ["build-only","nobuild-deploy","build-and-deploy"]'
+            ]
+        ]
+    ],
+    [$class: 'CascadeChoiceParameter',
+        choiceType: 'PT_SINGLE_SELECT',
+        description: 'Enter the version of the Image, previously built, to deploy when nobuild-deploy is selected as the BuildAction',
+        name: 'HelmAction',
+        randomName: 'choice-parameter-6631314453175624',
+        referencedParameters: 'BuildAction',
+        filterLength: 1, 
+        filterable: false,
+        script: [
+            $class: 'GroovyScript',
+            fallbackScript: [
+                classpath: [],
+                sandbox: true,
+                script: "return['Error loading the choices']"
+            ],
+            script: [
+                classpath: [],
+                sandbox: true,
+                script:
+                    """
+                    if (BuildAction != 'build-only'){
+                      return ['helm-dryrun','helm-install','helm-upgrade','helm-rollback','helm-uninstall']
+                    }else{
+                      return ['NotApplicable']
+                    }
+                    """
+            ]
+        ]
+    ],
+    [$class: 'CascadeChoiceParameter',
+        choiceType: 'PT_SINGLE_SELECT',
+        description: 'OS/ARCH of the Kubernetes cluster nodes. Docker image build is dependent on the underlying Architecture of the nodes',
+        name: 'ARCH',
+        randomName: 'choice-parameter-7831311453178624',
+        referencedParameters: 'BuildAction',
+        filterLength: 1, 
+        filterable: false,
+        script: [
+            $class: 'GroovyScript',
+            fallbackScript: [
+                classpath: [],
+                sandbox: true,
+                script: "return['Error loading the choices']"
+            ],
+            script: [
+                classpath: [],
+                sandbox: true,
+                script:
+                    """
+                    if (BuildAction in ['build-only', 'build-and-deploy'] ){
+                      return ['linux/arm/v7','linux/arm64/v8','linux/amd64']
+                    }else{
+                      return ['NotApplicable']
+                    }
+                    """
+            ]
+        ]
+    ],
+    [$class: 'DynamicReferenceParameter',
+        choiceType: 'ET_FORMATTED_HTML',
+        omitValueField: true,
+        description: 'Enter the version of the Image, previously built, to deploy when nobuild-deploy is selected as the BuildAction',
+        name: 'ImageVersion',
+        randomName: 'choice-parameter-8631314456178624',
+        referencedParameters: 'BuildAction',
+        script: [
+            $class: 'GroovyScript',
+            fallbackScript: [
+                classpath: [],
+                sandbox: true,
+                script: "return['Error loading the choices']"
+            ],
+            script: [
+                classpath: [],
+                sandbox: true,
+                script:
+                    '''
+                    if (BuildAction in ["build-only","build-and-deploy"]) {
+                      return "<input type=\\"text\\" name=\\"value\\" value=\\"NotApplicable\\" />"
+                    }else{
+                      return "<input type=\\"text\\" name=\\"value\\" value=\\"latest\\" />"
+                    }
+                    '''
+            ]
+        ]
+    ]
+    ])])
 pipeline {
     agent any
     
@@ -8,90 +120,114 @@ pipeline {
         ansiColor('xterm')
         timestamps()
     }
-    
-    parameters {
-       choice(name: 'Action', choices: ['build','deploy'], description: 'build: to build an image and push to dockerhub. deploy: to deploy to k8s')
-       choice(name: 'ARCH', choices: ['linux/arm/v7','linux/arm64/v8','linux/amd64'], description: 'OS/ARCH of the Kubernetes cluster nodes')
-       string(name: 'ReleaseVersion', defaultValue:'1', description: 'RELEASE VERSION NUMBER to tag an image in build stage. N/A when Action is "deploy"')
-       string(name: 'deployment_image_version', defaultValue:'', description: 'Enter the image version to deploy. N/A when Action is "build"')
-       string(name: 'kubernetes_admin_host', defaultValue:'', description: 'kubernetes admin host where kubeconfig is located. N/A when Action is "build"')
-       string(name: 'kubernetes_admin_host_login_username', defaultValue:'', description: 'username to login (ssh) to kubernetes admin host. N/A when Action is "build"')
-    }
 
-    environment {
-            RELEASE_VERSION = "${params.ReleaseVersion}"
-            SECRETKEYFILE = credentials('ssh_key')
-            DOCKERHUBUSERNAME = credentials('dockerhub_username')
-            DOCKERHUBPASSW = credentials('dockerhub_pw')
+    parameters{
+      string(name: 'KubeconfigFilePath', defaultValue:'', description: 'kubeconfig file path if not present in $HOME/.kube/')
     }
+    
+
   stages {
 
-        stage('Set version') {
+        stage('Set Build Version') {
             when {
-                expression { "${params.Action}" == 'build' }
+                expression { "${params.BuildAction}" != 'nobuild-deploy' }
             }
             steps {
               script {
                 // use 'version' to tag an image before publishing to a docker registry 
-                def tokenizedVersion = "${RELEASE_VERSION}".tokenize(".")
+                def tokenizedVersion = "${MajorReleaseVersion}".tokenize(".")
                 def release = tokenizedVersion[0]
                 version = "${release}.${env.BUILD_NUMBER}.${env.GIT_COMMIT.substring(0, 5)}"  
                 }
-                echo "${version}"
+                echo "BUILD VERSION: ${version}"
               }
             }
         
         stage('Build Docker Image & Push to repository') {
             when {
-                expression { "${params.Action}" == 'build' }
+                expression { "${params.BuildAction}" != 'nobuild-deploy' }
             }
             steps {
              script{
                 print ('Building the image')
                 sh """
                 set +x
-                sudo yum remove docker \
-                  docker-client \
-                  docker-client-latest \
-                  docker-common \
-                  docker-latest \
-                  docker-latest-logrotate \
-                  docker-logrotate \
-                  docker-engine -y
-                sudo yum update -y --skip-broken
-                sudo yum install -y docker
-                sudo service docker start
-                sudo docker system prune -a -f
-                sudo docker build . -f build/Dockerfile --no-cache --build-arg ARCH="${params.ARCH}" -t ${DOCKERHUBUSERNAME}/node-app:${version}
-                sudo docker login --username=${DOCKERHUBUSERNAME} --password ${DOCKERHUBPASSW}
-                sudo docker push ${DOCKERHUBUSERNAME}/node-app:${version}
-                sudo docker logout
+                # yum remove docker \
+                #  docker-client \
+                #  docker-client-latest \
+                #  docker-common \
+                #  docker-latest \
+                #  docker-latest-logrotate \
+                #  docker-logrotate \
+                #  docker-engine -y
+                #  yum update -y --skip-broken
+                # yum install -y docker
+                # service docker start
+                # docker system prune -a -f
                 """
+                withCredentials([usernamePassword(credentialsId: 'docker-login', passwordVariable: 'docker_pw', usernameVariable: 'docker_user')]) {
+                sh"""
+                docker build . -f build/Dockerfile --no-cache --build-arg ARCH="${params.ARCH}" -t ${docker_user}/node-app:${version} -t ${docker_user}/node-app:latest
+                docker login --username=${docker_user} --password ${docker_pw}
+                docker push ${docker_user}/node-app:${version}
+                docker push ${docker_user}/node-app:latest
+                echo 'Docker Image Push: Completed'
+                docker logout
+                """
+                }              
               } 
             }
         }
-        stage('Deploy to Kubernetes') {
-            when {
-                expression { "${params.Action}" == 'deploy' }
+
+        stage('Helm') {
+          when {
+                expression { "${params.BuildAction}" != 'build-only' }
             }
-            steps {
-              script{
-                def deploy_version = "${params.deployment_image_version}"
-                def REMOTEUSERNAME = "${params.kubernetes_admin_host_login_username}"
-                print ('deploying to kubernetes')
-                sh """
-                set +x
-                cat ${SECRETKEYFILE} > ssh_key
-                chmod 400 ssh_key
-                sed "s/tagVersion/${deploy_version}/g" -i deploy/nodeapp-deployment.yaml
-                chmod +x k8s_app_deploy.sh
-                ./k8s_app_deploy.sh -i ssh_key -d nodeapp-deployment.yaml -s nodeapp-service.yaml -k ${params.kubernetes_admin_host} -u ${REMOTEUSERNAME}
-                """
-              } 
-             
-             }
-        }
+          steps {
+            script{
+              HELMACTION = "${params.HelmAction}"
+              KUBECONFIG= "${params.KubeconfigFilePath}"
+              if ("${params.BuildAction}".toString() == 'nobuild-deploy'){
+                version = "${params.ImageVersion}".toString()
+                print "DEPLOYING THE IMAGE VERSION SPECIFIED BY THE USER: ${version}"
+              } else{
+                print "DEPLOYING IMAGE VERSION ===> ${version}"
+              }
+              
+              //Following linux script works on dash interpreter. If using a different interpreter, script may not work
+              sh"""
+              set +x
+              export KUBECONFIG=$KUBECONFIG
+              export HELMACTION=$HELMACTION
+              echo 'kubeconfig file path set to ${KUBECONFIG}'   
+              if [ '$HELMACTION' =  'helm-dryrun' ] 
+              then
+                echo 'HELM DRY RUN'
+                helm install --dry-run my-release helm/nodeapp-deployment
+              elif [ '$HELMACTION' =  'helm-install' ]
+              then
+                echo 'HELM INSTALL'
+                helm install my-release helm/nodeapp-deployment  --set 'image.tag=${version}'
+              elif [ '$HELMACTION' =  'helm-upgrade' ]
+              then
+                echo 'HELM UPGRADE'
+                helm upgrade my-release helm/nodeapp-deployment  --set 'image.tag=${version}'
+              elif [ '$HELMACTION' =  'helm-rollback' ]
+              then
+                echo 'HELM ROLLBACK'
+                helm rollback my-release
+              elif [ '$HELMACTION' =  'helm-uninstall' ]
+              then
+                echo 'HELM UNINSTALL'
+                helm uninstall my-release
+              else
+                echo 'HELM: NO CHANGES MADE'
+              fi
+              """
+            }
+          }
     }
+  }
     post { 
         always {
           cleanWs()
