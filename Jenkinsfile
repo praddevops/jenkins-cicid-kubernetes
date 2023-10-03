@@ -163,7 +163,7 @@ pipeline {
                 #  yum update -y --skip-broken
                 # yum install -y docker
                 # service docker start
-                # docker system prune -a -f
+                # 
                 """
                 withCredentials([usernamePassword(credentialsId: 'docker-login', passwordVariable: 'docker_pw', usernameVariable: 'docker_user')]) {
                 sh"""
@@ -172,6 +172,7 @@ pipeline {
                 docker push ${docker_user}/node-app:${version}
                 docker push ${docker_user}/node-app:latest
                 echo 'Docker Image Push: Completed'
+                docker system prune -a -f
                 docker logout
                 """
                 }              

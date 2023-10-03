@@ -1,7 +1,9 @@
-# Jenkins-cicd-kubernetes
-Jenkins pipeline to deploy new image to Kubernetes cluster
+# Jenkins-helm-kubernetes
+
+Jenkins pipeline to deploy new image to Kubernetes cluster using Helm chart
 
 ### Kubernetes 
+
 * You must have a kubernetes admin host setup with kubeconfig to run kubectl commands to manage cluster resources
 
 ### App code is located in src/main/node-app. Any changes made will trigger the pipeline which builds new image and updates the Kubernetes deployment with new image
@@ -78,10 +80,10 @@ Add the user to the docker group.
 
 `sudo usermod -aG docker jenkins`
 
-You would need to loog out and log back in so that your group membership is re-evaluated or type the following command:
+You would need to log out and log back in so that your group membership is re-evaluated or type the following command:
 
 `su -s jenkins`
 
-* If you are still getting `Got permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock: Get http://%2Fvar%2Frun%2Fdocker.sock/v1.40/containers/json: dial unix /var/run/docker.sock: connect: permission denied`, try thr following command
+* If you are still getting `Got permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock: Get http://%2Fvar%2Frun%2Fdocker.sock/v1.40/containers/json: dial unix /var/run/docker.sock: connect: permission denied`, try the following command
 
 `sudo chmod 666 /var/run/docker.sock`
