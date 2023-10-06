@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-def version
+def version = 'latest'
 def MajorReleaseVersion = '1' //This should match with the Major Release Version of the application
 properties([parameters([
     [$class: 'ChoiceParameter', 
@@ -45,9 +45,17 @@ properties([parameters([
                 sandbox: true,
                 script:
                     """
-                    if (BuildAction != 'build-only'){
-                      return ['helm-dryrun','helm-install','helm-upgrade','helm-rollback','helm-uninstall']
-                    }else{
+                    // if (BuildAction != 'build-only'){
+                    //   return ['helm-get','helm-dryrun','helm-install','helm-upgrade','helm-rollback','helm-uninstall']
+                    // }else{
+                    //   return ['NotApplicable']
+                    // }
+
+                    if (BuildAction == 'nobuild-deploy'){
+                      return ['helm-get','helm-dryrun','helm-install','helm-upgrade','helm-rollback','helm-uninstall']
+                    } else if (BuildAction == 'build-and-deploy'){
+                      return ['helm-install','helm-upgrade']
+                    } else {
                       return ['NotApplicable']
                     }
                     """
@@ -59,7 +67,7 @@ properties([parameters([
         description: 'OS/ARCH of the Kubernetes cluster nodes. Docker image build is dependent on the underlying Architecture of the nodes',
         name: 'ARCH',
         randomName: 'choice-parameter-7831311453178624',
-        referencedParameters: 'BuildAction',
+        referencedParameters: 'BuildAction,HelmAction',
         filterLength: 1, 
         filterable: false,
         script: [
@@ -74,7 +82,7 @@ properties([parameters([
                 sandbox: true,
                 script:
                     """
-                    if (BuildAction in ['build-only', 'build-and-deploy'] ){
+                    if (BuildAction in ['build-only', 'build-and-deploy']  && !(HelmAction in ['helm-get','helm-dryrun','helm-rollback','helm-uninstall'])){
                       return ['linux/arm/v7','linux/arm64/v8','linux/amd64']
                     }else{
                       return ['NotApplicable']
@@ -89,7 +97,7 @@ properties([parameters([
         description: 'Enter the version of the Image, previously built, to deploy when nobuild-deploy is selected as the BuildAction',
         name: 'ImageVersion',
         randomName: 'choice-parameter-8631314456178624',
-        referencedParameters: 'BuildAction',
+        referencedParameters: 'BuildAction,HelmAction',
         script: [
             $class: 'GroovyScript',
             fallbackScript: [
@@ -102,7 +110,7 @@ properties([parameters([
                 sandbox: true,
                 script:
                     '''
-                    if (BuildAction in ["build-only","build-and-deploy"]) {
+                    if (BuildAction in ["build-only","build-and-deploy"] || HelmAction in ["helm-get","helm-dryrun","helm-rollback","helm-uninstall"]) {
                       return "<input type=\\"text\\" name=\\"value\\" value=\\"NotApplicable\\" />"
                     }else{
                       return "<input type=\\"text\\" name=\\"value\\" value=\\"latest\\" />"
@@ -130,7 +138,7 @@ pipeline {
 
         stage('Set Build Version') {
             when {
-                expression { "${params.BuildAction}" != 'nobuild-deploy' }
+                expression { "${params.BuildAction}" != 'nobuild-deploy' && !("${params.HelmAction}" in ["helm-get","helm-dryrun","helm-rollback","helm-uninstall"])} 
             }
             steps {
               script {
@@ -145,7 +153,7 @@ pipeline {
         
         stage('Build Docker Image & Push to repository') {
             when {
-                expression { "${params.BuildAction}" != 'nobuild-deploy' }
+                expression { "${params.BuildAction}" != 'nobuild-deploy' && !("${params.HelmAction}" in ["helm-get","helm-dryrun","helm-rollback","helm-uninstall"])}
             }
             steps {
              script{
@@ -201,7 +209,11 @@ pipeline {
               export KUBECONFIG=$KUBECONFIG
               export HELMACTION=$HELMACTION
               echo 'kubeconfig file path set to ${KUBECONFIG}'   
-              if [ '$HELMACTION' =  'helm-dryrun' ] 
+              if [ '$HELMACTION' =  'helm-get' ] 
+              then
+                echo 'HELM GET'
+                helm get all my-release
+              elif [ '$HELMACTION' =  'helm-dryrun' ] 
               then
                 echo 'HELM DRY RUN'
                 helm install --dry-run my-release helm/nodeapp-deployment
