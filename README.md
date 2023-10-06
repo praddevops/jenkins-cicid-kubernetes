@@ -1,6 +1,6 @@
 # Jenkins-helm-kubernetes
 
-Jenkins pipeline to deploy new image to Kubernetes cluster using Helm chart
+This is a demo Jenkins pipeline to deploy new image to Kubernetes cluster using Helm chart. This project's main purpose is for  Kubernetes training
 
 ### Kubernetes 
 
@@ -67,6 +67,10 @@ Other uses of the release name in Helm
 In addition to the above, the release name can also be used by Helm to store other information about a release, such as the chart version, namespace, and release notes. This information can be useful for troubleshooting and auditing purposes.
 
 Overall, the release name is an important part of Helm because it allows you to uniquely identify, manage, and customize your deployments.
+
+### TODO
+
+* uimplement advanced helm features such as hooks
 
 ### Docker Troubleshooting
 
